@@ -1,0 +1,3 @@
+v2
+- Change the calculation of PLO percentfor each student. The percentage is calulated using reference data's scores (1st row in student data) instead of maximum scores.
+- Change in radar plot visualization. Added red circle at 50%.
