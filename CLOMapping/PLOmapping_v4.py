@@ -58,7 +58,8 @@ student_out_dir = os.path.join(OUTPUT_DIR, 'student')
 if not os.path.exists(student_out_dir):
     os.makedirs(student_out_dir)
 
-credit_data = pd.read_csv('@data/credits.csv')
+# FIXED PATH
+credit_data = pd.read_csv(os.path.join(DATA_DIR, 'credits.csv'))
 credit_names = credit_data['courses'].values.astype(str)
 
 ###########################################################################################################
