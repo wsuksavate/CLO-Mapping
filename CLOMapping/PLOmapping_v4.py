@@ -261,7 +261,6 @@ fig.update_layout(
 sankey_path = os.path.join(OUTPUT_DIR, 'plo_flow_map.html')
 fig.write_html(sankey_path)
 
-print(f"Flow map saved successfully to {sankey_path}")
 ##############################################################################################################
 
 # export contribution matrix
@@ -336,13 +335,17 @@ N = len(categories)
 base_angles = [n / float(N) * 2 * pi for n in range(N)]
 base_angles += base_angles[:1] 
 rotation_angle = 55 * pi / 180  
-# Pre-calculate the rotated and reversed angles for all plots
 final_angles = [(angle + rotation_angle) for angle in base_angles][::-1]
 circle_angles = np.linspace(0, 2 * np.pi, 200) 
 # -----------------------------------------------------------
 
-for i in range(len(df)):
+total_students = len(df) # Get the total number of plots to make
+
+for i in range(total_students):
     student_id = df.index[i]
+    
+    # --- NEW: PROGRESS COUNTER ---
+    print(f"Creating plot {i + 1} of {total_students} (Student: {student_id})")
     
     values = df.iloc[i,:].values.flatten().tolist()
     values += values[:1]
@@ -380,6 +383,7 @@ for i in range(len(df)):
     plt.clf()
     plt.close(fig) 
 
+print("\nAll radar plots generated successfully!")
 print("\nProcess Complete.")
 time.sleep(1)
 input("Press Enter to exit...")
