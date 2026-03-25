@@ -210,149 +210,117 @@ plo_cont_df.to_csv('@output/plo_contributions.csv')
 
 #%% STUDENT ANALYSIS
 print('\nStudent Analysis')
-student_files = os.listdir('@data/student')
-if not student_files:
-    print('No student file')
-    # Sleep for 3 seconds
+
+# SAFE PATHING
+student_data_dir = os.path.join(DATA_DIR, 'student')
+
+if not os.path.exists(student_data_dir):
+    print('ERROR: No @data/student folder found.')
     time.sleep(3)
-    input("Press Enter to exit...")
+    sys.exit()
+
+student_files = os.listdir(student_data_dir)
+if not student_files:
+    print('No student files found in directory.')
+    time.sleep(3)
     sys.exit()
 
 for file in student_files:
-    # Calculate scores for each student
-    # Read a CSV file into a DataFrame
-    print(file)
-    student_df = pd.read_csv('@data/student/'+file)
-    # Student ID
+    print(f"Processing: {file}")
+    
+    # SAFE PATHING
+    student_df = pd.read_csv(os.path.join(student_data_dir, file))
     student_id = student_df.iloc[:,0]
-    # Apply the function to the 'Grades' column
-    grade_df = student_df.iloc[:,1:].map(map_grades) ## can be substituted with grade_df = student_df.iloc[:,1:].map(map_grades)
-    ###grade_df = student_df.iloc[:,1:].map(map_grades)
-    # Create blank list
+    grade_df = student_df.iloc[:,1:].map(map_grades) 
+    
     students_plo_score = []
     students_plo_percent = []
-    # Loop through each student to calculate score
-    for i in range(len(grade_df)): # Looping through student i
-        # Select grade score of i student
-        df_temp = grade_df.iloc[i,:] # get percent score (proportion of CLO or PLO student will get) for each course
-        
-        # get the name (or id) of courses that student i has grade (not nan data)
-        # for reference student this is the course that is minimum required to graduate the program
+    
+    for i in range(len(grade_df)): 
+        df_temp = grade_df.iloc[i,:] 
         courses = grade_df.columns[df_temp.notna()]
-        
-        # get grading score of courses that student i has grade (not nan data)
         scores = df_temp[df_temp.notna()]
-        
-        # Select rows from plo weight score based on the name (id) of the courses
         selected_plo = plo_df.loc[courses]
-        
-        # sum scores over row (produce sum of PLO scores over all courses for student i)
         total_selected_plo = selected_plo.sum() 
         
-        # dot product of student i grading score (proportion) from each course with plo scores for each course give score of student i get from each PLO
         plo_score = pd.Series(np.dot(scores, selected_plo))
-        
-        # set index names
         plo_score.index = ['PLO1', 'PLO2', 'PLO3', 'PLO4', 'PLO5']
-        
-        # stack current student score to the previous loops
         students_plo_score.append(plo_score)
         
-        # calculate PLO percent student get from scores
-        # The PLO percent of student i = (PLO scores of stuent i) / (PLO scores of reference student)
-        if i == 0:  # If student is the reference (1st row)
+        if i == 0:  
             plo_percent = (plo_score / total_selected_plo) * 100
             ref_plo_score = plo_score.copy()
-        else:       # If the student is from 2nd row and on and on... Calculate percent based on reference student (1st row)
+        else:       
             plo_percent = (plo_score / ref_plo_score) * 100
-        # append data to dataframe
+        
         students_plo_percent.append(plo_percent)
 
-    # Convert to df and export csv
     students_plo_score_df = pd.DataFrame(students_plo_score)
     students_plo_score_df.index = student_id
     students_plo_percent_df = pd.DataFrame(students_plo_percent)
     students_plo_percent_df.index = student_id
 
-    # Specify the file path for saving the CSV file
-    file_dir = '@output/student/'
-    # Save the DataFrame to a CSV file
-    students_plo_score_df.to_csv(file_dir+'score_'+file)
-    students_plo_percent_df.to_csv(file_dir+'percent_'+file)
+    # SAFE PATHING FOR EXPORT
+    students_plo_score_df.to_csv(os.path.join(student_out_dir, f'score_{file}'))
+    students_plo_percent_df.to_csv(os.path.join(student_out_dir, f'percent_{file}'))
 
-#%% Experiments
-### Plotting radar plot or spider plot for every students
- 
-# block # df = students_plo_score_df.copy()  # students_plo_score_df  or students_plo_percent_df
-# Calculate percent compare to maximu score of each PLO
-# block # max_overall = df.iloc[0]
-# block # df = (df/max_overall) * 100
-
+#%% Plotting Radar Plot for each student
 plt.ioff()  # Turn off interactive mode
 df = students_plo_percent_df.copy()
 
-print("\nPlotting Radar Plot")
+print("\nPlotting Radar Plots...")
 time.sleep(1)
+
+# --- OPTIMIZATION: Calculate static math OUTSIDE the loop ---
+categories = list(df)[0:] 
+N = len(categories)
+base_angles = [n / float(N) * 2 * pi for n in range(N)]
+base_angles += base_angles[:1] 
+rotation_angle = 55 * pi / 180  
+# Pre-calculate the rotated and reversed angles for all plots
+final_angles = [(angle + rotation_angle) for angle in base_angles][::-1]
+circle_angles = np.linspace(0, 2 * np.pi, 200) 
+# -----------------------------------------------------------
+
 for i in range(len(df)):
-    # get student id
     student_id = df.index[i]
-    # number of variable
-    categories=list(df)[0:] # select student
-    N = len(categories)
-    # We are going to plot the first line of the data frame.
-    # But we need to repeat the first value to close the circular graph:
-    values=df.iloc[i,:].values.flatten().tolist()
+    
+    values = df.iloc[i,:].values.flatten().tolist()
     values += values[:1]
-    values
-    # What will be the angle of each axis in the plot? (we divide the plot / number of variable)
-    angles = [n / float(N) * 2 * pi for n in range(N)]
-    angles += angles[:1] 
-    # Rotate the start angle by "dg" degrees (convert to radians)
-    dg = 55
-    rotation_angle = dg * pi / 180  
-    angles = [(angle + rotation_angle) for angle in angles]
-    # Reverse the angles to make the plot go clockwise
-    angles = angles[::-1] 
+    
     # Initialise the spider plot
-    ax = plt.subplot(111, polar=True)
-    # Draw one axe per variable + add labels
-    plt.xticks(angles[:-1], categories, color='black', size=12)
-    # Draw ylabels
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True))
+    
+    plt.xticks(final_angles[:-1], categories, color='black', size=12)
     ax.set_rlabel_position(45)
-    # color of grid
     ax.grid(color='grey')
     
-    # Plot red line at 50% to be the reference line (easier visualize)
     if i > 0:
-        # Add a circular line at a specific radius
-        circle_radius = 50  # Change this value to adjust the circle's radius
-        circle_angles = np.linspace(0, 2 * np.pi, 200)  # More points for a smoother circle
-        ax.plot(circle_angles, [circle_radius] * len(circle_angles), color='red', linestyle='-', linewidth=1)
+        # Plot reference circle
+        ax.plot(circle_angles, [50] * len(circle_angles), color='red', linestyle='-', linewidth=1)
     
-    # plot grid label
     plt.yticks([25,50,75,100], ["25%","50%","75%","100%"], color="black", size=8)
     plt.ylim(0,100)
-    # Plot data
-    if i == 0: # red color for reference plot
-        ax.plot(angles, values, linewidth=2, linestyle='solid', color="red")
-        # Fill area
-        ax.fill(angles, values, 'red', alpha=0.25)
-    else: # green color for real-data plot
-        ax.plot(angles, values, linewidth=1.5, linestyle='solid', color="green")
-        # Fill area
-        ax.fill(angles, values, 'green', alpha=0.1)
-    # Add a title to the plot
-    plt.title('Student: '+str(student_id))
-    # Change title for reference student
-    if i == 0:
-        plt.title('The Reference Scores \n *Percentage calculated based on all available courses*')
     
-    # Tight layout
+    if i == 0: 
+        ax.plot(final_angles, values, linewidth=2, linestyle='solid', color="red")
+        ax.fill(final_angles, values, 'red', alpha=0.25)
+        plt.title('The Reference Scores \n *Percentage calculated based on all available courses*')
+    else: 
+        ax.plot(final_angles, values, linewidth=1.5, linestyle='solid', color="green")
+        ax.fill(final_angles, values, 'green', alpha=0.1)
+        plt.title(f'Student: {student_id}')
+    
     plt.tight_layout()
-    # Save the plot as a JPG file
-    plt.savefig('@output/student/student'+str(student_id)+'.jpg', dpi=150)
-    plt.close()  # Close the figure to release resources
-    plt.figure()  # Use plt.figure instead of plt.show if do not want to show th plot
+    
+    # SAFE PATHING FOR IMAGE SAVE
+    save_path = os.path.join(student_out_dir, f'student_{student_id}.jpg')
+    plt.savefig(save_path, dpi=150)
+    
+    # OPTIMIZATION: Completely clear and close the figure from memory
+    plt.clf()
+    plt.close(fig) 
 
+print("\nProcess Complete.")
 time.sleep(1)
 input("Press Enter to exit...")
