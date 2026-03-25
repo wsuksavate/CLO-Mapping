@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from math import pi
+import plotly.graph_objects as go
 
 # EXECUTABLE PATH HANDLING ---
 # This function ensures your script looks for @data and @output
@@ -203,6 +204,64 @@ plt.tight_layout()
 barplot_path = '@output/plo_scores.jpg'
 plt.savefig(barplot_path, dpi=150)
 plt.close() # Close to free up memory
+##############################################################################################################
+###############################################################################################################
+print("\nGenerating Course to PLO Alluvial Flow Map...")
+
+# We use the plo_df_saved from the previous step
+# Filter out the 'Total' and 'Weight' rows, and the 'Sum' column so they don't mess up the flow
+sankey_df = plo_df_saved.drop(index=['Total', 'Weight'], columns=['Sum'], errors='ignore')
+
+# 1. Define our Nodes (Left side = Courses, Right side = PLOs)
+course_nodes = [str(name) for name in sankey_df.index]
+plo_nodes = list(sankey_df.columns)
+all_nodes = course_nodes + plo_nodes
+
+# 2. Prepare the links (The flowing lines)
+source_indices = []
+target_indices = []
+values = []
+
+# Loop through the dataframe to build the connections
+for c_idx, course in enumerate(course_nodes):
+    for p_idx, plo in enumerate(plo_nodes):
+        value = sankey_df.loc[sankey_df.index[c_idx], plo]
+        
+        # Only create a flowing line if the course actually contributes to the PLO
+        if pd.notna(value) and value > 0:
+            source_indices.append(all_nodes.index(course))
+            target_indices.append(all_nodes.index(plo))
+            values.append(value)
+
+# 3. Build the Plotly Sankey Figure
+fig = go.Figure(data=[go.Sankey(
+    node = dict(
+      pad = 15,
+      thickness = 20,
+      line = dict(color = "black", width = 0.5),
+      label = all_nodes,
+      color = "blue" # You can customize node colors here if you want
+    ),
+    link = dict(
+      source = source_indices,
+      target = target_indices,
+      value = values,
+      # Add a slight transparency to the grey flow lines so they look nice when overlapping
+      color = "rgba(169, 169, 169, 0.4)" 
+    ))])
+
+fig.update_layout(
+    title_text="Course Contributions to Program Learning Outcomes (PLOs)", 
+    font_size=12,
+    height=600 # Makes the window tall enough to fit everything comfortably
+)
+
+# 4. Save as an interactive HTML file
+# SAFE PATHING
+sankey_path = os.path.join(OUTPUT_DIR, 'plo_flow_map.html')
+fig.write_html(sankey_path)
+
+print(f"Flow map saved successfully to {sankey_path}")
 ##############################################################################################################
 
 # export contribution matrix
