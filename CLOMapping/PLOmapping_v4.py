@@ -104,13 +104,29 @@ def letter_to_number(letter):
 
 # Function to map letter grades to numerical scores
 # Use dictionary instead of if else
+# --- NEW: LOAD GRADE MAP FROM CSV ---
+grade_map_path = os.path.join(DATA_DIR, 'grade_map.csv')
+if not os.path.exists(grade_map_path):
+    print('ERROR: Could not find grade_map.csv in the @data folder.')
+    input("Press Enter to exit...")
+    sys.exit()
+# Read the CSV file
+grade_map_data = pd.read_csv(grade_map_path)
+# Convert the first two columns into a dictionary
+# We force the grades (keys) to be uppercase strings with no spaces for safe matching
+# We force the scores (values) to be floats
+GRADE_MAP = {
+    str(k).strip().upper(): float(v) 
+    for k, v in zip(grade_map_data.iloc[:, 0], grade_map_data.iloc[:, 1])
+}
 # SAFER GRADE MAPPING ---
 def map_grades(grade):
     # Check if the grade is a string before stripping (in case of NaNs/floats)
     if isinstance(grade, str):
         grade = grade.strip().upper()
-    grade_map = {'A': 1.0, 'B+': 0.75, 'B': 0.5, 'C+': 0.25, 'C': 0.0, 'D+': 0.0, 'D': 0.0, 'F': 0.0}
-    return grade_map.get(grade, 0.0)
+    # Use the globally loaded dictionary instead of the hardcoded one
+    # Default to 0.0 if the grade isn't found in the CSV
+    return GRADE_MAP.get(grade, 0.0)
 
 #%% Running the app to calculate course-wise PLO score
 # Loop through file
