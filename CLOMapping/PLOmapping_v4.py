@@ -171,6 +171,39 @@ plo_cont_df.loc['average'] = plo_cont_df.mean(axis=0) # Add a new row 'average' 
 # Save the DataFrame to a CSV file
 plo_df_output.to_csv('@output/plo_scores.csv')
 
+###############################################################################################################
+print("\nGenerating PLO Weights Bar Plot...")
+# 1. Read the saved CSV file back in (setting the first column as the index)
+plo_df_saved = pd.read_csv('@output/plo_scores.csv', index_col=0)
+# 2. Extract the 'Weight' row and drop the 'Sum' column
+# errors='ignore' ensures it won't crash if 'Sum' happens to be missing
+plo_weights = plo_df_saved.loc['Weight'].drop('Sum', errors='ignore')
+# 3. Setup the plot
+plt.figure(figsize=(8, 6)) # Adjust width and height
+# Plotting the bar chart with some nice colors
+bars = plo_weights.plot(
+    kind='bar', 
+    color=['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3'],
+    edgecolor='black'
+)
+# 4. Add titles and labels
+plt.title('Overall Weight Distribution per PLO', fontsize=14, fontweight='bold')
+plt.xlabel('Program Learning Outcomes (PLO)', fontsize=12)
+plt.ylabel('Weight (%)', fontsize=12)
+# Keep the X-axis labels horizontal
+plt.xticks(rotation=0)
+# Add a little headroom above the tallest bar for the text labels
+plt.ylim(0, plo_weights.max() + 5)
+# 5. Add exact percentage values on top of each bar for clarity
+for i, value in enumerate(plo_weights):
+    plt.text(i, value + 0.5, f"{value:.2f}%", ha='center', va='bottom', fontweight='bold')
+# 6. Save the plot to the output folder
+plt.tight_layout()
+barplot_path = '@output/plo_scores.jpg'
+plt.savefig(barplot_path, dpi=150)
+plt.close() # Close to free up memory
+##############################################################################################################
+
 # export contribution matrix
 plo_cont_df.to_csv('@output/plo_contributions.csv')
 
