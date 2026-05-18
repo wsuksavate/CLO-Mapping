@@ -16,7 +16,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from math import pi
 import plotly.graph_objects as go
-import matplotlib.cm as cm
+import matplotlib as mpl
 
 # EXECUTABLE PATH HANDLING ---
 # This function ensures your script looks for @data and @output
@@ -193,7 +193,8 @@ plo_weights = plo_df_saved.loc['Weight'].drop('Sum', errors='ignore')
 fig, ax = plt.subplots(figsize=(8, 6), facecolor='white')
 ax.set_facecolor('white')
 # Generate distinct colors based on the number of PLOs
-dynamic_colors = cm.get_cmap('tab10', len(plo_weights)).colors
+# Access the global colormap registry and slice the exact number of required colors
+dynamic_colors = mpl.colormaps['tab10'].colors[:len(plo_weights)]
 bars = plo_weights.plot(
         kind='bar', 
         color=dynamic_colors,
