@@ -316,7 +316,6 @@ for file in student_files:
         total_selected_plo = selected_plo.sum() 
         
         plo_score = pd.Series(np.dot(scores, selected_plo))
-        # Reuse the dynamic plo_columns list generated in Step 2
         plo_score.index = plo_columns
         
         students_plo_score.append(plo_score)
@@ -326,6 +325,9 @@ for file in student_files:
             ref_plo_score = plo_score.copy()
         else:       
             plo_percent = (plo_score / ref_plo_score) * 100
+        
+        # FIX: Rectify missing data artifacts mapped from division by zero
+        plo_percent = plo_percent.replace([np.inf, -np.inf], np.nan).fillna(0)
         
         students_plo_percent.append(plo_percent)
 
@@ -338,6 +340,7 @@ for file in student_files:
     students_plo_score_df.to_csv(os.path.join(student_out_dir, f'score_{file}'))
     students_plo_percent_df.to_csv(os.path.join(student_out_dir, f'percent_{file}'))
 
+
 #%% Plotting Radar Plot for each student
 plt.ioff()  # Turn off interactive mode
 df = students_plo_percent_df.copy()
@@ -345,56 +348,60 @@ df = students_plo_percent_df.copy()
 print("\nPlotting Radar Plots...")
 time.sleep(1)
 
-# --- OPTIMIZATION: Calculate static math OUTSIDE the loop ---
-categories = list(df)[0:] 
+# --- OPTIMIZATION & FIX: Native Polar Geometry ---
+categories = list(df.columns) 
 N = len(categories)
-base_angles = [n / float(N) * 2 * pi for n in range(N)]
-base_angles += base_angles[:1] 
-rotation_angle = 55 * pi / 180  
-final_angles = [(angle + rotation_angle) for angle in base_angles][::-1]
-circle_angles = np.linspace(0, 2 * np.pi, 200) 
+
+# Standard equal angles to close the polygon
+angles = [n / float(N) * 2 * pi for n in range(N)]
+angles += angles[:1] 
+circle_angles = np.linspace(0, 2 * pi, 200) 
 # -----------------------------------------------------------
 
 total_students = len(df) # Get the total number of plots to make
 
 for i in range(total_students):
     student_id = df.index[i]
-    
-    # --- NEW: PROGRESS COUNTER ---
     print(f"Creating plot {i + 1} of {total_students} (Student: {student_id})")
     
-    values = df.iloc[i,:].values.flatten().tolist()
+    # Extract values and handle any remaining NaNs, then close the polygon
+    values = df.iloc[i,:].fillna(0).values.flatten().tolist()
     values += values[:1]
     
-    # Initialise the spider plot
+    # Initialize the spider plot with explicit white background parameters
     fig, ax = plt.subplots(figsize=(6, 6), subplot_kw=dict(polar=True), facecolor='white')
     ax.set_facecolor('white')
     
-    plt.xticks(final_angles[:-1], categories, color='black', size=12)
+    # Native offset and direction (replaces fragile manual array reversal)
+    ax.set_theta_offset(55 * pi / 180) # Maintain original visual starting angle
+    ax.set_theta_direction(-1) # Clockwise drawing
+    
+    # Set radial labels and constraints
+    plt.xticks(angles[:-1], categories, color='black', size=12)
     ax.set_rlabel_position(45)
-    ax.grid(color='grey')
+    plt.yticks([25, 50, 75, 100], ["25%", "50%", "75%", "100%"], color="black", size=8)
+    plt.ylim(0, 100)
+    ax.grid(color='grey', linestyle='--', alpha=0.7)
     
     if i > 0:
-        # Plot reference circle
+        # Plot reference boundary
         ax.plot(circle_angles, [50] * len(circle_angles), color='red', linestyle='-', linewidth=1)
     
-    plt.yticks([25,50,75,100], ["25%","50%","75%","100%"], color="black", size=8)
-    plt.ylim(0,100)
-    
     if i == 0: 
-        ax.plot(final_angles, values, linewidth=2, linestyle='solid', color="red")
-        ax.fill(final_angles, values, 'red', alpha=0.25)
-        plt.title('The Reference Scores \n *Percentage calculated based on all available courses*')
+        ax.plot(angles, values, linewidth=2, linestyle='solid', color="red")
+        ax.fill(angles, values, 'red', alpha=0.25)
+        plt.title('The Reference Scores \n *Percentage calculated based on all available courses*', pad=20)
     else: 
-        ax.plot(final_angles, values, linewidth=1.5, linestyle='solid', color="green")
-        ax.fill(final_angles, values, 'green', alpha=0.1)
-        plt.title(f'Student: {student_id}')
+        ax.plot(angles, values, linewidth=1.5, linestyle='solid', color="green")
+        ax.fill(angles, values, 'green', alpha=0.1)
+        plt.title(f'Student: {student_id}', pad=20)
     
     plt.tight_layout()
     
     # SAFE PATHING FOR IMAGE SAVE
     save_path = os.path.join(student_out_dir, f'student_{student_id}.jpg')
-    plt.savefig(save_path, dpi=150)
+    # bbox_inches='tight' prevents axis labels from being cropped in the output file
+    plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')
     
     # OPTIMIZATION: Completely clear and close the figure from memory
     plt.clf()
